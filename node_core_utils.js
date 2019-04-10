@@ -32,6 +32,10 @@ function genRandomName() {
   return name;
 }
 
+function md5(str) {
+  return Crypto.createHash('md5').update(str).digest('hex');
+}
+
 function verifyAuth(signStr, streamId, secretKey) {
   if (signStr === undefined) {
     return false;
@@ -43,8 +47,7 @@ function verifyAuth(signStr, streamId, secretKey) {
   if (exp < now) {
     return false;
   }
-  let md5 = Crypto.createHash('md5');
-  let ohv = md5.update(str).digest('hex');
+  let ohv = md5(str);
   return shv === ohv;
 }
 
@@ -88,6 +91,7 @@ function getFFmpegUrl() {
 
 module.exports = {
   generateNewSessionID,
+  md5,
   verifyAuth,
   genRandomName,
   getFFmpegVersion,

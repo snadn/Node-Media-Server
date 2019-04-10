@@ -6,6 +6,7 @@
 
 
 const Fs = require('fs');
+const Path = require('path');
 const Http = require('http');
 const Https = require('https');
 const WebSocket = require('ws');
@@ -51,12 +52,6 @@ class NodeHttpServer {
       }
     });
 
-    if (this.config.auth && this.config.auth.api) {
-      app.use('/api/*', basicAuth(this.config.auth.api_user, this.config.auth.api_pass));
-    }
-    app.use('/api/streams', streamsRoute(context));
-    app.use('/api/server', serverRoute(context));
-
     if (this.config.auth !== undefined && this.config.auth.play) {
       app.use((req, res, next) => {
         if (!req.url.startsWith('/api')) {
@@ -70,7 +65,38 @@ class NodeHttpServer {
         }
         next();
       });
+
+      app.all('*.m3u8', (req, res, next) => {
+        const filepath = Path.normalize(`${this.mediaroot}${req.path}`);
+        // console.log(filepath, filepath.startsWith(Path.normalize(this.mediaroot)));
+        if (filepath.startsWith(Path.normalize(this.mediaroot))) {
+          Fs.readFile(filepath, { encoding: 'utf-8' }, (err, text) => {
+            if (err) {
+              console.error(err);
+              res.sendStatus(404);
+            } else {
+              res.type('.m3u8');
+              res.end(text.replace(/^.*\.ts$/igm, (name) => {
+                const path = Path.posix.join(Path.dirname(req.path), name);
+                const exp = req.query.sign.split('-')[0];
+                const sign = NodeCoreUtils.md5(`${path}-${exp}-${this.config.auth.secret}`);
+
+                return `${name}?sign=${exp}-${sign}`;
+              }));
+            }
+          });
+        } else {
+          res.sendStatus(403);
+        }
+      });
     }
+
+    if (this.config.auth && this.config.auth.api) {
+      app.use('/api/*', basicAuth(this.config.auth.api_user, this.config.auth.api_pass));
+    }
+    app.use('/api/streams', streamsRoute(context));
+    app.use('/api/server', serverRoute(context));
+
     app.use(Express.static(this.webroot));
     app.use(Express.static(this.mediaroot));
 

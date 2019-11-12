@@ -100,6 +100,7 @@ class NodeHttpServer {
     app.use(Express.static(this.webroot));
     app.use(Express.static(this.mediaroot));
 
+    this.expressApp = app;
     this.httpServer = Http.createServer(app);
 
     /**
